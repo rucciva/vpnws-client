@@ -1,0 +1,27 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "taskName": "Build",
+            "command": "./misc/script/build.sh",
+            "args": [
+                "git.rucciva.tk/vpnws"
+            ],
+            "type": "shell",
+            "problemMatcher": [
+                "$go"
+            ]
+        },
+        {
+            "taskName": "Dep Ensure",
+            "command": "./misc/script/dep.sh",
+            "args": [
+                "ensure"
+            ],
+            "type": "shell",
+            "problemMatcher": [
+                "$go"
+            ]
+        }
+    ]
+}

@@ -1,0 +1,16 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "taskName": "Build Something",
+            "command": "./misc/script/build.sh",
+            "args": [
+                "the/complete/package"
+            ],
+            "type": "shell",
+            "problemMatcher": [
+                "$go"
+            ]
+        }
+    ]
+}

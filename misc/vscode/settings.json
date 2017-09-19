@@ -1,0 +1,14 @@
+{   
+    "go.gopath": "/some/path/go", // local gopath of this project
+    "sync-rsync.delete": true,
+    "sync-rsync.sites": [
+        {
+            "remotePath":"user@1.1.1.1:/some/path/int/the/server/billing" // remote server path to rsync    
+        }
+    ],
+     "sync-rsync.exclude": [
+        ".git",
+        ".vscode",
+        "vendor"
+    ]
+}
