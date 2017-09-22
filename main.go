@@ -6,9 +6,9 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -32,11 +32,31 @@ var (
 	ErrInvalidCertificate = errors.New("certificate is not yet valid")
 	ErrParalelReconnect   = errors.New("parallel reconnection")
 	ErrTooEarlyToConnect  = errors.New("possible parallel reconnect. Must wait before reconnection")
+	ErrParallelClose      = errors.New("parralel close")
 
 	tap  *TapDevice
 	wsc  *WSClient
 	vpnc *VPNClient
 )
+
+type chainnedError struct {
+	me   error
+	next error
+}
+
+func NewChainnedError(m, n error) error {
+	if m == nil {
+		return n
+	}
+	if n == nil {
+		return m
+	}
+	return &chainnedError{m, n}
+}
+
+func (this *chainnedError) Error() string {
+	return strings.Join([]string{this.me.Error(), this.next.Error()}, ";")
+}
 
 func basicAuth(username, password string) string {
 	auth := username + ":" + password
@@ -229,24 +249,26 @@ func readWriteWithContext(ctx context.Context, r io.Reader, w io.Writer, buf []b
 }
 
 type VPNClient struct {
-	wsc *WSClient
-	tap *TapDevice
-	buf int
-	cmd string
+	wsc     *WSClient
+	tap     *TapDevice
+	buf     int
+	cmdPrev string
+	cmdNext string
 }
 
-func NewVPNClient(w *WSClient, t *TapDevice, b int, c string) (vc *VPNClient, err error) {
+func NewVPNClient(w *WSClient, t *TapDevice, b int, cp, cn string) (vc *VPNClient, err error) {
 	vc = &VPNClient{}
 	vc.wsc = w
 	vc.tap = t
-	vc.cmd = c
+	vc.cmdPrev = cp
+	vc.cmdNext = cn
 	vc.buf = b
 	return vc, err
 }
 
-func (this *VPNClient) execCMD() error {
-	cmd := strings.Replace(this.cmd, "{{.dev}}", this.tap.device.Name(), -1)
-	if _, err := exec.Command("bash", "-c", cmd).Output(); err != nil {
+func (this *VPNClient) execCMD(s string) error {
+	cmd := strings.Replace(s, "{{.dev}}", this.tap.device.Name(), -1)
+	if _, err := exec.Command("/bin/bash", "-c", cmd).Output(); err != nil {
 		return err
 	}
 	return nil
@@ -266,7 +288,7 @@ func (this *VPNClient) Open(ctx context.Context) (cCtx context.Context, err erro
 	if err = this.wsc.Open(); err != nil {
 		return cCtx, err
 	}
-	if err = this.execCMD(); err != nil {
+	if err = this.execCMD(this.cmdPrev); err != nil {
 		return cCtx, err
 	}
 
@@ -289,6 +311,10 @@ func (this *VPNClient) Open(ctx context.Context) (cCtx context.Context, err erro
 		}
 	}()
 
+	if err = this.execCMD(this.cmdNext); err != nil {
+		return cCtx, err
+	}
+
 	return cCtx, err
 }
 
@@ -296,13 +322,30 @@ func (this *VPNClient) Close() (err error) {
 	if this == nil {
 		return nil
 	}
-	defer func() { err = this.tap.Close() }()
-	defer func() { err = this.wsc.Close() }()
+	err = this.tap.Close()
+	this.wsc.Close()
+
 	return err
 }
 
 func main() {
 	var err error
+
+	ctx, cancel := context.WithCancel(context.Background())
+	chSigs := make(chan os.Signal, 1)
+	signal.Notify(chSigs, syscall.SIGINT, syscall.SIGTERM)
+	chClose := make(chan bool, 1)
+	go func() {
+		<-chSigs
+		log.Println("Got exit command. Please wait till clean up process done")
+
+		chClose <- true
+		if err = vpnc.Close(); err != nil {
+			log.Fatalln("Cannot close vpn: " + err.Error())
+		}
+		log.Println("Clean up success. Bye")
+		os.Exit(0)
+	}()
 
 	// prepare command line options and arguments
 	origin := getopt.StringLong("origin", 'o', "http://localhost", "origin of the request. Default: http://localhost", "http[s]://<origin>")
@@ -313,11 +356,12 @@ func main() {
 	skipVerifyClient := getopt.BoolLong("skip-verify-client", 0, "Skip Verify Client Certificate", "boolean")
 	skipVerifyServer := getopt.BoolLong("skip-verify-server", 0, "Skip Verify Server Certificate", "boolean")
 	tapPref := getopt.StringLong("interface", 'i', "tap", "tap interface prefix. Default: tap", "string")
-	cmd := getopt.StringLong("exec", 'x', "echo", "command to run right after successful connection and before read write operation, e.g 'ipconfig set tap1 DHCP'", "string")
+	cmdPrev := getopt.StringLong("exec-prev", 0, "echo", "command to run right after successful connection and before read write operation, e.g 'ipconfig set tap1 DHCP'", "string")
+	cmdNext := getopt.StringLong("exec-next", 0, "echo", "command to run right after read write operation started, e.g 'ipconfig set tap1 DHCP'", "string")
 	bufSize := getopt.IntLong("buf-size", 0, defBuffSize, "read write buffer size. Default: 1526", "int")
 	getopt.SetParameters("ws[s]://websocket.server.address[/some/path?some=query]")
 	if err := getopt.Getopt(nil); err != nil {
-		fmt.Println("error in parsing commang line argument:" + err.Error())
+		log.Println("error in parsing commang line argument:" + err.Error())
 		getopt.Usage()
 		os.Exit(1)
 	}
@@ -331,12 +375,12 @@ func main() {
 
 	// open tap device
 	if tap, err = NewTapDevice(*tapPref); err != nil {
-		fmt.Println("cannot init tap device:" + err.Error())
+		log.Println("cannot init tap device:" + err.Error())
 		os.Exit(1)
 	}
 
 	if wsc, err = NewWSClient(); err != nil {
-		fmt.Println("cannot init ws client:" + err.Error())
+		log.Println("cannot init ws client:" + err.Error())
 		os.Exit(1)
 	}
 	wsc.Url = url
@@ -348,45 +392,41 @@ func main() {
 	wsc.SkipVerifyClient = *skipVerifyClient
 	wsc.SkipVerifyServer = *skipVerifyServer
 
-	ctx, cancel := context.WithCancel(context.Background())
-	chSigs := make(chan os.Signal, 1)
-	signal.Notify(chSigs, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		<-chSigs
-		fmt.Println("Got exit command")
-		fmt.Println("Please wait till clean up process done")
-		cancel()
-		vpnc.Close()
-		os.Exit(0)
-	}()
-
-	if vpnc, err = NewVPNClient(wsc, tap, *bufSize, *cmd); err != nil {
-		fmt.Println("cannot init vpn client:" + err.Error())
+	if vpnc, err = NewVPNClient(wsc, tap, *bufSize, *cmdPrev, *cmdNext); err != nil {
+		log.Println("cannot init vpn client:" + err.Error())
 		os.Exit(1)
 	}
 
 	var cCtx context.Context
 	if cCtx, err = vpnc.Open(ctx); err != nil {
-		fmt.Println("cannot open vpn connection:" + err.Error())
+		log.Println("cannot open vpn connection:" + err.Error())
 	} else {
-		fmt.Println("VPN Connection Established")
+		log.Println("VPN Connection Established")
+		log.Println("Tap Device: " + vpnc.tap.device.Name())
 	}
 
 	for {
 		select {
 		case <-cCtx.Done():
-			fmt.Println("VPN Connection Interrupted")
-			vpnc.Close()
+			chClose <- true
+			log.Println("VPN Connection Interrupted")
+			if err = vpnc.Close(); err != nil {
+				log.Println("Cannot completely close VPN connection: " + err.Error())
+				log.Println("Bye")
 
-			fmt.Println("Retrying...")
+				cancel()
+				os.Exit(1)
+			}
+			<-chClose
+
+			log.Println("Retrying...")
 			if cCtx, err = vpnc.Open(ctx); err != nil {
-				fmt.Println("Cannot Re-Establish VPN connection:" + err.Error())
-				fmt.Println("Wait before retrying...")
+				log.Println("Cannot Re-Establish VPN connection:" + err.Error())
+				log.Println("Wait before retrying...")
 				<-time.After(time.Minute)
 			}
 
-			fmt.Println("VPN Re-Established")
+			log.Println("VPN Re-Established")
 
 		}
 	}
