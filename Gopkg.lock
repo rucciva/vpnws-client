@@ -15,6 +15,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/sparrc/go-ping"
+  packages = ["."]
+  revision = "416e72114cd1edce2f287648f935a60dfe6cf40e"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/crypto"
   packages = ["pkcs12","pkcs12/internal/rc2"]
   revision = "7d9177d70076375b9a59c8fde23d52d9c4a7ecd5"
@@ -22,12 +28,12 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["websocket"]
+  packages = ["bpf","icmp","internal/iana","internal/socket","ipv4","ipv6","websocket"]
   revision = "8351a756f30f1297fe94bbf4b767ec589c6ea6d0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "bd8b7c504e78925f7e34af559b6db7d4ba642387ce33c40a78922eaa426fc6b3"
+  inputs-digest = "eb6c2924713d98211ef26d1009d1ab5c0cbca1fa1284504922bff8899c3b495d"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -19,6 +19,7 @@ import (
 
 	"github.com/liudanking/tuntap"
 	"github.com/pborman/getopt"
+	ping "github.com/sparrc/go-ping"
 	"golang.org/x/crypto/pkcs12"
 	"golang.org/x/net/websocket"
 )
@@ -38,25 +39,6 @@ var (
 	wsc  *WSClient
 	vpnc *VPNClient
 )
-
-type chainnedError struct {
-	me   error
-	next error
-}
-
-func NewChainnedError(m, n error) error {
-	if m == nil {
-		return n
-	}
-	if n == nil {
-		return m
-	}
-	return &chainnedError{m, n}
-}
-
-func (this *chainnedError) Error() string {
-	return strings.Join([]string{this.me.Error(), this.next.Error()}, ";")
-}
 
 func basicAuth(username, password string) string {
 	auth := username + ":" + password
@@ -328,6 +310,32 @@ func (this *VPNClient) Close() (err error) {
 	return err
 }
 
+func sendPing(ctx context.Context, host string, dur time.Duration) (err error) {
+	p, err := ping.NewPinger(host)
+	if err != nil {
+		return err
+	}
+	p.SetPrivileged(true)
+	p.Count = 1
+	p.OnRecv = func(pkt *ping.Packet) {
+		log.Printf("received %d ping bytes from %s: icmp_seq=%d time=%v\n",
+			pkt.Nbytes, pkt.IPAddr, pkt.Seq, pkt.Rtt)
+	}
+
+	t := time.NewTicker(dur)
+	log.Printf("will try to send ping to %s for every %d seconds", host, dur/time.Second)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+
+		case <-t.C:
+			log.Printf("send ping to: %s", host)
+			p.Run()
+		}
+	}
+}
+
 func main() {
 	var err error
 
@@ -359,6 +367,8 @@ func main() {
 	cmdPrev := getopt.StringLong("exec-prev", 0, "echo", "command to run right after successful connection and before read write operation, e.g 'ipconfig set tap1 DHCP'", "string")
 	cmdNext := getopt.StringLong("exec-next", 0, "echo", "command to run right after read write operation started, e.g 'ipconfig set tap1 DHCP'", "string")
 	bufSize := getopt.IntLong("buf-size", 0, defBuffSize, "read write buffer size. Default: 1526", "int")
+	keepAliveHost := getopt.StringLong("keep-alive-host", 0, "192.168.11.3", "ip address of machine that will receive ping packet", "string")
+	keepAliveTick := getopt.IntLong("keep-alive-tick", 0, 15, "keep alive ticker in second", "string")
 	getopt.SetParameters("ws[s]://websocket.server.address[/some/path?some=query]")
 	if err := getopt.Getopt(nil); err != nil {
 		log.Println("error in parsing commang line argument:" + err.Error())
@@ -404,6 +414,8 @@ func main() {
 		log.Println("VPN Connection Established")
 		log.Println("Tap Device: " + vpnc.tap.device.Name())
 	}
+
+	go sendPing(ctx, *keepAliveHost, time.Duration(*keepAliveTick)*time.Second)
 
 	for {
 		select {
