@@ -116,7 +116,7 @@ func NewWSClient() (c *WSClient, err error) {
 }
 
 func (this *WSClient) Open() error {
-	if this.ws != nil {
+	if this == nil || this.ws != nil {
 		this.ws.Close()
 	}
 	conf, err := websocket.NewConfig(this.Url, this.Origin)
@@ -179,6 +179,9 @@ func NewTapDevice(p string) (t *TapDevice, err error) {
 }
 
 func (this *TapDevice) Open() (err error) {
+	if this == nil {
+		return nil
+	}
 	for i := 0; i < maxTapDeviceCount; i++ {
 		dev := strconv.AppendInt([]byte(this.prefix), int64(i), 10)
 		if this.device, err = tuntap.Open(string(dev), tuntap.DevTap); err == nil {
