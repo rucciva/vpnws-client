@@ -154,10 +154,16 @@ func (this *WSClient) Close() error {
 }
 
 func (this *WSClient) Read(p []byte) (n int, err error) {
+	if this == nil || this.ws == nil {
+		return 0, nil
+	}
 	return this.ws.Read(p)
 }
 
 func (this *WSClient) Write(p []byte) (n int, err error) {
+	if this == nil || this.ws == nil {
+		return 0, nil
+	}
 	return this.ws.Write(p)
 }
 
@@ -190,10 +196,16 @@ func (this *TapDevice) Close() error {
 }
 
 func (this *TapDevice) Read(p []byte) (n int, err error) {
+	if this == nil || this.device == nil {
+		return 0, nil
+	}
 	return this.device.Read(p)
 }
 
 func (this *TapDevice) Write(p []byte) (n int, err error) {
+	if this == nil || this.device == nil {
+		return 0, nil
+	}
 	return this.device.Write(p)
 }
 
