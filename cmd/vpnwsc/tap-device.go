@@ -41,7 +41,7 @@ func (this *TapDevice) Close() error {
 	if this == nil || this.device == nil {
 		return nil
 	}
-	log.Print("closing tap device")
+	log.Print("closing tap device ", this.device.Name())
 	if err := this.device.Close(); err != nil {
 		return err
 	}
@@ -53,7 +53,9 @@ func (this *TapDevice) Read(p []byte) (n int, err error) {
 	if this == nil || this.device == nil {
 		return 0, ErrNil
 	}
+	// log.Println("tap read started")
 	n, err = this.device.Read(p)
+	// log.Println("tap read finished")
 	return
 }
 
@@ -61,6 +63,8 @@ func (this *TapDevice) Write(p []byte) (n int, err error) {
 	if this == nil || this.device == nil {
 		return 0, ErrNil
 	}
+	// log.Println("tap write started")
 	n, err = this.device.Write(p)
+	// log.Println("tap write finished")
 	return
 }

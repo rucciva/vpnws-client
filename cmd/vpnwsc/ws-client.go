@@ -84,9 +84,12 @@ func NewWSClient(rw *RWTimer) (c *WSClient, err error) {
 	return c, err
 }
 
-func (this *WSClient) Open() error {
-	if this == nil || this.ws != nil {
-		this.ws.Close()
+func (this *WSClient) Open() (err error) {
+	if this == nil {
+		return ErrNil
+	}
+	if this.RWTimer == nil {
+		return ErrNil
 	}
 	conf, err := websocket.NewConfig(this.Url, this.Origin)
 	if err != nil {
@@ -109,10 +112,8 @@ func (this *WSClient) Open() error {
 			*cert,
 		},
 	}
-	if this.ws, err = websocket.DialConfig(conf); err != nil {
-		return err
-	}
-	return nil
+	this.ws, err = websocket.DialConfig(conf)
+	return
 }
 
 func (this *WSClient) Close() error {
@@ -130,12 +131,18 @@ func (this *WSClient) Read(p []byte) (n int, err error) {
 	if this == nil || this.ws == nil {
 		return 0, ErrNil
 	}
-	return this.ws.Read(p)
+	// log.Println("websocket read started")
+	n, err = this.ws.Read(p)
+	// log.Println("websocket read finished")
+	return
 }
 
 func (this *WSClient) Write(p []byte) (n int, err error) {
 	if this == nil || this.ws == nil {
 		return 0, ErrNil
 	}
-	return this.ws.Write(p)
+	// log.Println("websocket write started")
+	n, err = this.ws.Write(p)
+	// log.Println("websocket write finished")
+	return
 }

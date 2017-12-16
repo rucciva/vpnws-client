@@ -32,7 +32,6 @@ var (
 )
 
 func sendPing(ctx context.Context, host string, dur time.Duration) (err error) {
-	return
 	onRecv := func(pkt *ping.Packet) {
 		log.Printf("received %d ping bytes from %s: icmp_seq=%d time=%v\n",
 			pkt.Nbytes, pkt.IPAddr, pkt.Seq, pkt.Rtt)
@@ -87,8 +86,10 @@ func main() {
 	skipVerifyClient := getopt.BoolLong("skip-verify-client", 0, "Skip Verify Client Certificate", "boolean")
 	skipVerifyServer := getopt.BoolLong("skip-verify-server", 0, "Skip Verify Server Certificate", "boolean")
 	tapPref := getopt.StringLong("interface", 'i', "tap", "tap interface prefix. Default: tap", "string")
-	cmdPrev := getopt.StringLong("exec-prev", 0, "echo", "command to run right after successful connection and before read write operation, e.g 'ipconfig set {{.dev}} DHCP'", "string")
-	cmdNext := getopt.StringLong("exec-next", 0, "echo", "command to run right after read write operation started, e.g 'dhclient {{.dev}}'", "string")
+	cmdBeforeConnect := getopt.StringLong("cmd-before-connect", 0, "echo", "command to run right after connected but before read write operation, e.g 'ipconfig set {{.dev}} DHCP'", "string")
+	cmdAfterConnect := getopt.StringLong("cmd-after-connect", 0, "echo", "command to run right read write operation started, e.g 'dhclient {{.dev}}'", "string")
+	cmdBeforeDisconnect := getopt.StringLong("cmd-before-disconnect", 0, "echo", "command to run right before disconnect and before device closed, e.g 'ipconfig set {{.dev}} NONE'", "string")
+	cmdAfterDisconnect := getopt.StringLong("cmd-after-disconnect", 0, "echo", "command to run right after disconnect but before device closed, e.g 'ipconfig set {{.dev}} NONE'", "string")
 	bufSize := getopt.IntLong("buf-size", 0, defBuffSize, "read write buffer size. Default: 1526", "int")
 	keepAliveHost := getopt.StringLong("keep-alive-host", 0, "192.168.11.3", "ip address of machine that will receive ping packet", "string")
 	keepAliveTick := getopt.IntLong("keep-alive-tick", 0, 5, "keep alive ticker in second", "string")
@@ -129,10 +130,14 @@ func main() {
 	wsc.SkipVerifyClient = *skipVerifyClient
 	wsc.SkipVerifyServer = *skipVerifyServer
 
-	if vpnc, err = NewVPNWSClient(wsc, tap, *bufSize, *cmdPrev, *cmdNext); err != nil {
+	if vpnc, err = NewVPNWSClient(wsc, tap, *bufSize); err != nil {
 		log.Println("cannot init vpn client:" + err.Error())
 		os.Exit(1)
 	}
+	vpnc.cmdAfterConnect = *cmdAfterConnect
+	vpnc.cmdBeforeConnect = *cmdBeforeConnect
+	vpnc.cmdBeforeDisconnect = *cmdBeforeDisconnect
+	vpnc.cmdAfterDisconnect = *cmdAfterDisconnect
 
 	var cCtx context.Context
 	if cCtx, err = vpnc.Open(ctx); err != nil {
@@ -144,7 +149,7 @@ func main() {
 
 	go sendPing(ctx, *keepAliveHost, time.Duration(*keepAliveTick)*time.Second)
 
-	reConnectWait := time.Second
+	reConnectWait := 1 * time.Second
 	maxreConnectWait := time.Minute
 	for {
 		select {
@@ -160,11 +165,14 @@ func main() {
 			}
 			<-chClose
 
-			log.Println("Retrying...")
+			log.Println("Wait all Read Write operation to terminate before closing")
+			vpnc.WaitReadWrite()
+
+			log.Println("Wait before reconnecting...")
+			<-time.After(reConnectWait)
+			log.Println("Reconnecting...")
 			if cCtx, err = vpnc.Open(ctx); err != nil {
 				log.Println("Cannot Re-Establish VPN connection:" + err.Error())
-				log.Println("Wait before retrying...")
-				<-time.After(reConnectWait)
 				if reConnectWait = reConnectWait * 2; reConnectWait > maxreConnectWait {
 					reConnectWait = maxreConnectWait
 				}

@@ -5,22 +5,26 @@ import (
 	"log"
 	"os/exec"
 	"strings"
+	"sync"
 )
 
 type VPNWSClient struct {
-	wsc     *WSClient
-	tap     *TapDevice
-	buf     int
-	cmdPrev string
-	cmdNext string
+	wsc *WSClient
+	tap *TapDevice
+	buf int
+
+	cmdBeforeConnect    string
+	cmdAfterConnect     string
+	cmdBeforeDisconnect string
+	cmdAfterDisconnect  string
+
+	wg sync.WaitGroup
 }
 
-func NewVPNWSClient(w *WSClient, t *TapDevice, buf int, cmdPrev, cmdNext string) (vc *VPNWSClient, err error) {
+func NewVPNWSClient(w *WSClient, t *TapDevice, buf int) (vc *VPNWSClient, err error) {
 	vc = &VPNWSClient{}
 	vc.wsc = w
 	vc.tap = t
-	vc.cmdPrev = cmdPrev
-	vc.cmdNext = cmdNext
 	vc.buf = buf
 	return vc, err
 }
@@ -51,16 +55,18 @@ func (this *VPNWSClient) Open(ctx context.Context) (cCtx context.Context, err er
 	if err = this.tap.Open(); err != nil {
 		return cCtx, err
 	}
-	if err = this.execCMD(this.cmdPrev); err != nil {
+	if err = this.execCMD(this.cmdBeforeConnect); err != nil {
 		return cCtx, err
 	}
 
+	this.wg.Add(2)
 	go func() {
-		log.Printf("start read from web socket and write to tap")
+		log.Printf("websocket -> tap started")
 		buf := make([]byte, this.buf)
 		for {
 			if err = readWriteWithContext(ctx, this.wsc, this.tap, buf); err != nil {
-				log.Printf("got error: '%s' when read from ws connection then write to tap device", err)
+				log.Printf("websocket -> tap error : %s", err)
+				this.wg.Done()
 				cCancel()
 				return
 			}
@@ -68,29 +74,41 @@ func (this *VPNWSClient) Open(ctx context.Context) (cCtx context.Context, err er
 	}()
 
 	go func() {
-		log.Printf("start read from tap and write to web socket")
+		log.Printf("tap -> websocket started")
 		buf := make([]byte, this.buf)
 		for {
 			if err = readWriteWithContext(ctx, this.tap, this.wsc, buf); err != nil {
-				log.Printf("got error: '%s' when read from tap device then write to ws connection", err)
+				log.Printf("tap -> websocker error : %s", err)
+				this.wg.Done()
 				cCancel()
 				return
 			}
 		}
 	}()
 
-	if err = this.execCMD(this.cmdNext); err != nil {
+	if err = this.execCMD(this.cmdAfterConnect); err != nil {
 		return cCtx, err
 	}
 
 	return cCtx, err
+}
+func (this *VPNWSClient) WaitReadWrite() {
+	this.wg.Wait()
 }
 
 func (this *VPNWSClient) Close() (err error) {
 	if this == nil {
 		return nil
 	}
-	err = this.tap.Close()
-	this.wsc.Close()
-	return err
+	if err = this.execCMD(this.cmdBeforeDisconnect); err != nil {
+		log.Println("error executin cleanup-prev cmd", err)
+	}
+	if err = this.wsc.Close(); err != nil {
+		log.Println("error stopping web socket connection", err)
+	}
+	if err := this.execCMD(this.cmdAfterDisconnect); err != nil {
+		log.Println("error executin cleanup-next cmd", err)
+	}
+
+	return this.tap.Close()
 }
