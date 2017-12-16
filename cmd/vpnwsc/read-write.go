@@ -17,14 +17,12 @@ type WriterWithTimeout interface {
 	io.Writer
 	WriteTimeout() <-chan time.Time
 	ResetWriteTimeout()
-	ResetStoppedWriteTimeout()
 }
 
 type ReaderWithTimeout interface {
 	io.Reader
 	ReadTimeout() <-chan time.Time
 	ResetReadTimeout()
-	ResetStoppedReadTimeout()
 }
 
 type RWTimer struct {
@@ -51,14 +49,10 @@ func (rw *RWTimer) ResetWriteTimeout() {
 		return
 	}
 	if !rw.wtimer.Stop() {
-		<-rw.wtimer.C
-	}
-	rw.wtimer.Reset(rw.wdur)
-}
-
-func (rw *RWTimer) ResetStoppedWriteTimeout() {
-	if rw == nil {
-		return
+		select {
+		case <-rw.wtimer.C:
+		default:
+		}
 	}
 	rw.wtimer.Reset(rw.wdur)
 }
@@ -75,14 +69,10 @@ func (rw *RWTimer) ResetReadTimeout() {
 		return
 	}
 	if !rw.rtimer.Stop() {
-		<-rw.rtimer.C
-	}
-	rw.rtimer.Reset(rw.rdur)
-}
-
-func (rw *RWTimer) ResetStoppedReadTimeout() {
-	if rw == nil {
-		return
+		select {
+		case <-rw.rtimer.C:
+		default:
+		}
 	}
 	rw.rtimer.Reset(rw.rdur)
 }
@@ -100,7 +90,6 @@ func readWrite(r ReaderWithTimeout, w WriterWithTimeout, buf []byte) (err error)
 	select {
 	case err = <-rErr:
 	case <-r.ReadTimeout():
-		r.ResetStoppedReadTimeout()
 		err = errRWTimeOut
 	}
 	if err != nil {
@@ -117,7 +106,6 @@ func readWrite(r ReaderWithTimeout, w WriterWithTimeout, buf []byte) (err error)
 	select {
 	case err = <-wErr:
 	case <-w.WriteTimeout():
-		w.ResetStoppedWriteTimeout()
 		err = errRWTimeOut
 	}
 	return
