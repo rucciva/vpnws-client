@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"os/exec"
 	"strings"
 )
@@ -14,18 +15,22 @@ type VPNWSClient struct {
 	cmdNext string
 }
 
-func NewVPNWSClient(w *WSClient, t *TapDevice, b int, cp, cn string) (vc *VPNWSClient, err error) {
+func NewVPNWSClient(w *WSClient, t *TapDevice, buf int, cmdPrev, cmdNext string) (vc *VPNWSClient, err error) {
 	vc = &VPNWSClient{}
 	vc.wsc = w
 	vc.tap = t
-	vc.cmdPrev = cp
-	vc.cmdNext = cn
-	vc.buf = b
+	vc.cmdPrev = cmdPrev
+	vc.cmdNext = cmdNext
+	vc.buf = buf
 	return vc, err
 }
 
 func (this *VPNWSClient) execCMD(s string) error {
+	if this == nil || this.wsc == nil || this.tap == nil || this.tap.device == nil {
+		return ErrNil
+	}
 	cmd := strings.Replace(s, "{{.dev}}", this.tap.device.Name(), -1)
+	log.Printf("Executing command: %s", cmd)
 	if _, err := exec.Command("/bin/bash", "-c", cmd).Output(); err != nil {
 		return err
 	}
@@ -40,10 +45,10 @@ func (this *VPNWSClient) Open(ctx context.Context) (cCtx context.Context, err er
 		}
 	}()
 
-	if err = this.tap.Open(); err != nil {
+	if err = this.wsc.Open(); err != nil {
 		return cCtx, err
 	}
-	if err = this.wsc.Open(); err != nil {
+	if err = this.tap.Open(); err != nil {
 		return cCtx, err
 	}
 	if err = this.execCMD(this.cmdPrev); err != nil {
@@ -51,18 +56,23 @@ func (this *VPNWSClient) Open(ctx context.Context) (cCtx context.Context, err er
 	}
 
 	go func() {
+		log.Printf("start read from web socket and write to tap")
 		buf := make([]byte, this.buf)
 		for {
-			if err = readWriteWithContext(ctx, this.tap, this.wsc, buf); err != nil {
+			if err = readWriteWithContext(ctx, this.wsc, this.tap, buf); err != nil {
+				log.Printf("got error: '%s' when read from ws connection then write to tap device", err)
 				cCancel()
 				return
 			}
 		}
 	}()
+
 	go func() {
+		log.Printf("start read from tap and write to web socket")
 		buf := make([]byte, this.buf)
 		for {
-			if err = readWriteWithContext(ctx, this.wsc, this.tap, buf); err != nil {
+			if err = readWriteWithContext(ctx, this.tap, this.wsc, buf); err != nil {
+				log.Printf("got error: '%s' when read from tap device then write to ws connection", err)
 				cCancel()
 				return
 			}
@@ -82,6 +92,5 @@ func (this *VPNWSClient) Close() (err error) {
 	}
 	err = this.tap.Close()
 	this.wsc.Close()
-
 	return err
 }

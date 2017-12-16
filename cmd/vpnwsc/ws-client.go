@@ -5,7 +5,6 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"io/ioutil"
-	"time"
 
 	"golang.org/x/crypto/pkcs12"
 	"golang.org/x/net/websocket"
@@ -74,15 +73,14 @@ type WSClient struct {
 	SkipVerifyServer bool
 	SkipVerifyClient bool
 
-	ws                  *websocket.Conn
-	chanConn            chan bool
-	lastSuccessConnTime time.Time
+	ws *websocket.Conn
+
+	*RWTimer
 }
 
-func NewWSClient() (c *WSClient, err error) {
+func NewWSClient(rw *RWTimer) (c *WSClient, err error) {
 	c = new(WSClient)
-	c.chanConn = make(chan bool, 1)
-	c.lastSuccessConnTime = time.Time{}
+	c.RWTimer = rw
 	return c, err
 }
 
@@ -121,19 +119,23 @@ func (this *WSClient) Close() error {
 	if this == nil || this.ws == nil {
 		return nil
 	}
-	return this.ws.Close()
+	if err := this.ws.Close(); err != nil {
+		return err
+	}
+	this.ws = nil
+	return nil
 }
 
 func (this *WSClient) Read(p []byte) (n int, err error) {
 	if this == nil || this.ws == nil {
-		return 0, nil
+		return 0, ErrNil
 	}
 	return this.ws.Read(p)
 }
 
 func (this *WSClient) Write(p []byte) (n int, err error) {
 	if this == nil || this.ws == nil {
-		return 0, nil
+		return 0, ErrNil
 	}
 	return this.ws.Write(p)
 }

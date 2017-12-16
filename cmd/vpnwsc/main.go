@@ -24,6 +24,7 @@ var (
 	ErrParalelReconnect   = errors.New("parallel reconnection")
 	ErrTooEarlyToConnect  = errors.New("possible parallel reconnect. Must wait before reconnection")
 	ErrParallelClose      = errors.New("parralel close")
+	ErrNil                = errors.New("nil error")
 
 	tap  *TapDevice
 	wsc  *WSClient
@@ -31,29 +32,31 @@ var (
 )
 
 func sendPing(ctx context.Context, host string, dur time.Duration) (err error) {
-	p, err := ping.NewPinger(host)
-	if err != nil {
-		return err
-	}
-	p.SetPrivileged(true)
-	p.Count = 1
-	p.OnRecv = func(pkt *ping.Packet) {
+	return
+	onRecv := func(pkt *ping.Packet) {
 		log.Printf("received %d ping bytes from %s: icmp_seq=%d time=%v\n",
 			pkt.Nbytes, pkt.IPAddr, pkt.Seq, pkt.Rtt)
 	}
-
-	t := time.NewTicker(dur)
 	log.Printf("will try to send ping to %s for every %d seconds", host, dur/time.Second)
 	for {
 		select {
 		case <-ctx.Done():
 			return
-
-		case <-t.C:
-			log.Printf("send ping to: %s", host)
-			p.Run()
+		default:
 		}
+
+		p, err := ping.NewPinger(host)
+		if err != nil {
+			return err
+		}
+		p.SetPrivileged(true)
+		p.Count = 1
+		p.OnRecv = onRecv
+		p.Run()
+		<-time.After(dur)
 	}
+
+	return
 }
 
 func main() {
@@ -88,7 +91,11 @@ func main() {
 	cmdNext := getopt.StringLong("exec-next", 0, "echo", "command to run right after read write operation started, e.g 'dhclient {{.dev}}'", "string")
 	bufSize := getopt.IntLong("buf-size", 0, defBuffSize, "read write buffer size. Default: 1526", "int")
 	keepAliveHost := getopt.StringLong("keep-alive-host", 0, "192.168.11.3", "ip address of machine that will receive ping packet", "string")
-	keepAliveTick := getopt.IntLong("keep-alive-tick", 0, 15, "keep alive ticker in second", "string")
+	keepAliveTick := getopt.IntLong("keep-alive-tick", 0, 5, "keep alive ticker in second", "string")
+	tapReadTimeout := getopt.IntLong("tap-read-timeout", 0, 60, "tap device read timeout in second", "string")
+	tapWriteTimeout := getopt.IntLong("tap-write-timeout", 0, 60, "tap device write timeout in second", "string")
+	wsReadTimeout := getopt.IntLong("ws-read-timeout", 0, 15, "web socket read timeout in second", "string")
+	wsWriteTimeout := getopt.IntLong("ws-write-timeout", 0, 15, "web socket write timeout in second", "string")
 	getopt.SetParameters("ws[s]://websocket.server.address[/some/path?some=query]")
 	if err := getopt.Getopt(nil); err != nil {
 		log.Println("error in parsing commang line argument:" + err.Error())
@@ -104,12 +111,12 @@ func main() {
 	url := args[0]
 
 	// open tap device
-	if tap, err = NewTapDevice(*tapPref); err != nil {
+	if tap, err = NewTapDevice(*tapPref, NewRWTimer(time.Duration(*tapReadTimeout)*time.Second, time.Duration(*tapWriteTimeout)*time.Second)); err != nil {
 		log.Println("cannot init tap device:" + err.Error())
 		os.Exit(1)
 	}
 
-	if wsc, err = NewWSClient(); err != nil {
+	if wsc, err = NewWSClient(NewRWTimer(time.Duration(*wsReadTimeout)*time.Second, time.Duration(*wsWriteTimeout)*time.Second)); err != nil {
 		log.Println("cannot init ws client:" + err.Error())
 		os.Exit(1)
 	}
@@ -156,8 +163,8 @@ func main() {
 				log.Println("Cannot Re-Establish VPN connection:" + err.Error())
 				log.Println("Wait before retrying...")
 				<-time.After(time.Minute)
+				continue
 			}
-
 			log.Println("VPN Re-Established")
 
 		}
