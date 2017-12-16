@@ -54,8 +54,6 @@ func sendPing(ctx context.Context, host string, dur time.Duration) (err error) {
 		p.Run()
 		<-time.After(dur)
 	}
-
-	return
 }
 
 func main() {
