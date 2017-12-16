@@ -144,6 +144,8 @@ func main() {
 
 	go sendPing(ctx, *keepAliveHost, time.Duration(*keepAliveTick)*time.Second)
 
+	reConnectWait := time.Second
+	maxreConnectWait := time.Minute
 	for {
 		select {
 		case <-cCtx.Done():
@@ -162,11 +164,15 @@ func main() {
 			if cCtx, err = vpnc.Open(ctx); err != nil {
 				log.Println("Cannot Re-Establish VPN connection:" + err.Error())
 				log.Println("Wait before retrying...")
-				<-time.After(time.Minute)
+				<-time.After(reConnectWait)
+				if reConnectWait = reConnectWait * 2; reConnectWait > maxreConnectWait {
+					reConnectWait = maxreConnectWait
+				}
 				continue
 			}
-			log.Println("VPN Re-Established")
 
+			reConnectWait = time.Second
+			log.Println("VPN Re-Established")
 		}
 	}
 }
