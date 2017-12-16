@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"strconv"
 
 	"github.com/liudanking/tuntap"
@@ -40,6 +41,7 @@ func (this *TapDevice) Close() error {
 	if this == nil || this.device == nil {
 		return nil
 	}
+	log.Print("closing tap device")
 	if err := this.device.Close(); err != nil {
 		return err
 	}
