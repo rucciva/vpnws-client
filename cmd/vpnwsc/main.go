@@ -38,6 +38,7 @@ func sendPing(ctx context.Context, host string, dur time.Duration) (err error) {
 	}
 	log.Printf("will try to send ping to %s for every %d seconds", host, dur/time.Second)
 	for {
+		<-time.After(dur)
 		select {
 		case <-ctx.Done():
 			return
@@ -52,7 +53,6 @@ func sendPing(ctx context.Context, host string, dur time.Duration) (err error) {
 		p.Count = 1
 		p.OnRecv = onRecv
 		p.Run()
-		<-time.After(dur)
 	}
 }
 
