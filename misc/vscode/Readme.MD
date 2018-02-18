@@ -1,1 +1,0 @@
-### Visual Studo Code Example Settings
