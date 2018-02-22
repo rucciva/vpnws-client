@@ -13,7 +13,7 @@ docker run \
     -v "$PWD"/bin:/go/bin \
     -w /go/   \
     golang:1.9 \
-    go sh -c 'go get -u github.com/golang/dep/cmd/dep && dep ensure  && go install -v git.rucciva.one/rucciva/vpnws-client/cmd/vpnwsc'
+    sh -c 'go get -u github.com/golang/dep/cmd/dep && dep ensure  && go install -v git.rucciva.one/rucciva/vpnws-client/cmd/vpnwsc'
 ```
 
 ### Run Example
@@ -31,7 +31,6 @@ sudo ./bin/vpnwsc\
     --pkcs12-file=$path_to_ssl_client_certificate \
     --pkcs12-file-pass=$ssl_client_certificate_password \
     --cmd-after-connect 'ifconfig {{.dev}} up && dhclient {{.dev}} && ifconfig {{.dev}} mtu 1500' \
-    --cmd-after-disconnect 'ifconfig {{.dev}} down' \
     wss://${server_endpoint}${server_path}
 ```
 
