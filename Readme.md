@@ -11,7 +11,7 @@ docker run \
     --name vpnwsc-builder \
     -v "$PWD":/go/src/git.rucciva.one/rucciva/vpnws-client \
     -v "$PWD"/bin:/go/bin \
-    -w /go/   \
+    -w /go/src/git.rucciva.one/rucciva/vpnws-client  \
     golang:1.9 \
     sh -c 'go get -u github.com/golang/dep/cmd/dep && dep ensure  && go install -v git.rucciva.one/rucciva/vpnws-client/cmd/vpnwsc'
 ```
