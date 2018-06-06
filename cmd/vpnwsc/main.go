@@ -119,7 +119,7 @@ func main() {
 		log.Println("cannot init ws client:" + err.Error())
 		os.Exit(1)
 	}
-	wsc.Url = url
+	wsc.URL = url
 	wsc.Origin = *origin
 	wsc.Username = *username
 	wsc.Password = *password
@@ -142,7 +142,7 @@ func main() {
 		log.Println("cannot open vpn connection:" + err.Error())
 	} else {
 		log.Println("VPN Connection Established")
-		log.Println("Tap Device: " + vpnc.tap.device.Name())
+		log.Println("Tap Device: " + vpnc.tap.Name())
 	}
 
 	go sendPing(ctx, *keepAliveHost, time.Duration(*keepAliveTick)*time.Second)

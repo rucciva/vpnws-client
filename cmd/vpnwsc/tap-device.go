@@ -2,14 +2,18 @@ package main
 
 import (
 	"log"
-	"strconv"
-
-	"github.com/liudanking/tuntap"
 )
+
+type tapDevice interface {
+	Name() string
+	Read(p []byte) (n int, err error)
+	Write(p []byte) (n int, err error)
+	Close() error
+}
 
 type TapDevice struct {
 	prefix string
-	device *tuntap.Interface
+	device tapDevice
 
 	*RWTimer
 }
@@ -21,50 +25,49 @@ func NewTapDevice(p string, rw *RWTimer) (t *TapDevice, err error) {
 	return t, err
 }
 
-func (this *TapDevice) Open() (err error) {
-	if this == nil {
+func (tap *TapDevice) Name() string {
+	return tap.device.Name()
+}
+
+func (tap *TapDevice) Open() (err error) {
+	if tap == nil {
 		return ErrNil
 	}
-	if this.RWTimer == nil {
+	if tap.RWTimer == nil {
 		return ErrNil
 	}
-	for i := 0; i < maxTapDeviceCount; i++ {
-		dev := strconv.AppendInt([]byte(this.prefix), int64(i), 10)
-		if this.device, err = tuntap.Open(string(dev), tuntap.DevTap); err == nil {
-			return nil
-		}
-	}
+	tap.device, err = openTapDevice(tap.prefix)
 	return err
 }
 
-func (this *TapDevice) Close() error {
-	if this == nil || this.device == nil {
+func (tap *TapDevice) Close() error {
+	if tap == nil || tap.device == nil {
 		return nil
 	}
-	log.Print("closing tap device ", this.device.Name())
-	if err := this.device.Close(); err != nil {
+	log.Print("closing tap device ", tap.device.Name())
+	if err := tap.device.Close(); err != nil {
 		return err
 	}
-	this.device = nil
+	tap.device = nil
 	return nil
 }
 
-func (this *TapDevice) Read(p []byte) (n int, err error) {
-	if this == nil || this.device == nil {
+func (tap *TapDevice) Read(p []byte) (n int, err error) {
+	if tap == nil || tap.device == nil {
 		return 0, ErrNil
 	}
 	// log.Println("tap read started")
-	n, err = this.device.Read(p)
+	n, err = tap.device.Read(p)
 	// log.Println("tap read finished")
 	return
 }
 
-func (this *TapDevice) Write(p []byte) (n int, err error) {
-	if this == nil || this.device == nil {
+func (tap *TapDevice) Write(p []byte) (n int, err error) {
+	if tap == nil || tap.device == nil {
 		return 0, ErrNil
 	}
 	// log.Println("tap write started")
-	n, err = this.device.Write(p)
+	n, err = tap.device.Write(p)
 	// log.Println("tap write finished")
 	return
 }

@@ -31,7 +31,7 @@ func verify(cert *x509.Certificate) error {
 		}
 	case x509.UnknownAuthorityError:
 		// Apple cert isn't in the cert pool
-		// ignoring this error
+		// ignoring wsc error
 		return nil
 	default:
 		return err
@@ -63,7 +63,7 @@ func loadCertificatePair(pkcs12File, pkcs12FilePassword string) (*tls.Certificat
 }
 
 type WSClient struct {
-	Url                string
+	URL                string
 	Origin             string
 	Username           string
 	Password           string
@@ -84,65 +84,65 @@ func NewWSClient(rw *RWTimer) (c *WSClient, err error) {
 	return c, err
 }
 
-func (this *WSClient) Open() (err error) {
-	if this == nil {
+func (wsc *WSClient) Open() (err error) {
+	if wsc == nil {
 		return ErrNil
 	}
-	if this.RWTimer == nil {
+	if wsc.RWTimer == nil {
 		return ErrNil
 	}
-	conf, err := websocket.NewConfig(this.Url, this.Origin)
+	conf, err := websocket.NewConfig(wsc.URL, wsc.Origin)
 	if err != nil {
 		return err
 	}
-	conf.Header.Add("Authorization", "Basic "+basicAuth(this.Username, this.Password))
-	if this.PKCS12File == "" {
+	conf.Header.Add("Authorization", "Basic "+basicAuth(wsc.Username, wsc.Password))
+	if wsc.PKCS12File == "" {
 		return ErrInvalidCertificate
 	}
-	cert, err := loadCertificatePair(this.PKCS12File, this.PKCS12FilePassword)
+	cert, err := loadCertificatePair(wsc.PKCS12File, wsc.PKCS12FilePassword)
 	if err != nil && cert == nil {
 		return err
 	}
-	if err != nil && cert != nil && !this.SkipVerifyClient {
+	if err != nil && cert != nil && !wsc.SkipVerifyClient {
 		return err
 	}
 	conf.TlsConfig = &tls.Config{
-		InsecureSkipVerify: this.SkipVerifyServer,
+		InsecureSkipVerify: wsc.SkipVerifyServer,
 		Certificates: []tls.Certificate{
 			*cert,
 		},
 	}
-	this.ws, err = websocket.DialConfig(conf)
+	wsc.ws, err = websocket.DialConfig(conf)
 	return
 }
 
-func (this *WSClient) Close() error {
-	if this == nil || this.ws == nil {
+func (wsc *WSClient) Close() error {
+	if wsc == nil || wsc.ws == nil {
 		return nil
 	}
-	if err := this.ws.Close(); err != nil {
+	if err := wsc.ws.Close(); err != nil {
 		return err
 	}
-	this.ws = nil
+	wsc.ws = nil
 	return nil
 }
 
-func (this *WSClient) Read(p []byte) (n int, err error) {
-	if this == nil || this.ws == nil {
+func (wsc *WSClient) Read(p []byte) (n int, err error) {
+	if wsc == nil || wsc.ws == nil {
 		return 0, ErrNil
 	}
 	// log.Println("websocket read started")
-	n, err = this.ws.Read(p)
+	n, err = wsc.ws.Read(p)
 	// log.Println("websocket read finished")
 	return
 }
 
-func (this *WSClient) Write(p []byte) (n int, err error) {
-	if this == nil || this.ws == nil {
+func (wsc *WSClient) Write(p []byte) (n int, err error) {
+	if wsc == nil || wsc.ws == nil {
 		return 0, ErrNil
 	}
 	// log.Println("websocket write started")
-	n, err = this.ws.Write(p)
+	n, err = wsc.ws.Write(p)
 	// log.Println("websocket write finished")
 	return
 }

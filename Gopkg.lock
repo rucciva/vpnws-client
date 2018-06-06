@@ -15,6 +15,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/songgao/water"
+  packages = ["."]
+  revision = "bf1a5d02778fcf40c282de352a53b1fe1f5b9f96"
+
+[[projects]]
+  branch = "master"
   name = "github.com/sparrc/go-ping"
   packages = ["."]
   revision = "416e72114cd1edce2f287648f935a60dfe6cf40e"
@@ -22,18 +28,38 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
-  packages = ["pkcs12","pkcs12/internal/rc2"]
+  packages = [
+    "pkcs12",
+    "pkcs12/internal/rc2"
+  ]
   revision = "7d9177d70076375b9a59c8fde23d52d9c4a7ecd5"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["bpf","icmp","internal/iana","internal/socket","ipv4","ipv6","websocket"]
+  packages = [
+    "bpf",
+    "icmp",
+    "internal/iana",
+    "internal/socket",
+    "ipv4",
+    "ipv6",
+    "websocket"
+  ]
   revision = "8351a756f30f1297fe94bbf4b767ec589c6ea6d0"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/sys"
+  packages = [
+    "windows",
+    "windows/registry"
+  ]
+  revision = "c11f84a56e43e20a78cee75a7c034031ecf57d1f"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "eb6c2924713d98211ef26d1009d1ab5c0cbca1fa1284504922bff8899c3b495d"
+  inputs-digest = "9f9b27e9f9a32f4b21e81214edc15576a131a3e266ad7c3a83e5e7d296b0d8f2"
   solver-name = "gps-cdcl"
   solver-version = 1
