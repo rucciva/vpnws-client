@@ -3,39 +3,50 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:1092134a14bdb8acbfed7ba391e482bd8b9c074daa290bf1f06ba1ed329eb7cd"
   name = "github.com/liudanking/tuntap"
   packages = ["."]
+  pruneopts = ""
   revision = "c88fa87e6f315606cdd1dbf16af9f51eb834624a"
 
 [[projects]]
   branch = "master"
+  digest = "1:66810fd9c88602a1783d7f3a50019cc8d61b325fc4f4e253ece3f49d8cb262aa"
   name = "github.com/pborman/getopt"
   packages = ["."]
+  pruneopts = ""
   revision = "7148bc3a4c3008adfcab60cbebfd0576018f330b"
 
 [[projects]]
   branch = "master"
+  digest = "1:370d24806155e544abe2c5bf1a3d50754be178cee0e1d3138e9439d7b89cd2ec"
   name = "github.com/songgao/water"
   packages = ["."]
+  pruneopts = ""
   revision = "bf1a5d02778fcf40c282de352a53b1fe1f5b9f96"
 
 [[projects]]
   branch = "master"
+  digest = "1:bf38f78876465f9dce9639107848da44428501cc46d4e0dfcdb93ab6254976d2"
   name = "github.com/sparrc/go-ping"
   packages = ["."]
+  pruneopts = ""
   revision = "416e72114cd1edce2f287648f935a60dfe6cf40e"
 
 [[projects]]
   branch = "master"
+  digest = "1:e10c88bfaf62d55e2f19df1de09c322531079fb17d105d3dcb4bd6153e30139a"
   name = "golang.org/x/crypto"
   packages = [
     "pkcs12",
-    "pkcs12/internal/rc2"
+    "pkcs12/internal/rc2",
   ]
+  pruneopts = ""
   revision = "7d9177d70076375b9a59c8fde23d52d9c4a7ecd5"
 
 [[projects]]
   branch = "master"
+  digest = "1:4d72ed63792924162d3d65ac102e7c9e0e748fc33d80dbb4b044933ebd492468"
   name = "golang.org/x/net"
   packages = [
     "bpf",
@@ -44,22 +55,32 @@
     "internal/socket",
     "ipv4",
     "ipv6",
-    "websocket"
+    "websocket",
   ]
+  pruneopts = ""
   revision = "8351a756f30f1297fe94bbf4b767ec589c6ea6d0"
 
 [[projects]]
   branch = "master"
+  digest = "1:bc468e6f6fb109d22b8aa37b1eb9f8e705ebdbe7f462034cfcb72ac73e41b375"
   name = "golang.org/x/sys"
   packages = [
     "windows",
-    "windows/registry"
+    "windows/registry",
   ]
+  pruneopts = ""
   revision = "c11f84a56e43e20a78cee75a7c034031ecf57d1f"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9f9b27e9f9a32f4b21e81214edc15576a131a3e266ad7c3a83e5e7d296b0d8f2"
+  input-imports = [
+    "github.com/liudanking/tuntap",
+    "github.com/pborman/getopt",
+    "github.com/songgao/water",
+    "github.com/sparrc/go-ping",
+    "golang.org/x/crypto/pkcs12",
+    "golang.org/x/net/websocket",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1
