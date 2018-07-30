@@ -1,0 +1,12 @@
+version: "3.4"
+services: 
+  vpnwsc:
+    build: 
+      context: ../../../.
+      dockerfile: ./misc/docker/Dockerfile
+      target: builder
+      args:
+        - MY_PACKAGE=git.rucciva.one/rucciva/vpnwsc
+        - MY_ENVIRONMENT=development
+        - MY_EXECUTABLE=vpnwsc
+    image: rucciva/vpnwsc-dev
