@@ -34,7 +34,11 @@ FROM debian:stretch-slim
 
 RUN \
     apt-get update &&\
-    apt-get install -y net-tools isc-dhcp-client ca-certificates
+    apt-get install -y\
+		net-tools \
+		isc-dhcp-client \
+		ca-certificates &&\
+	rm -rf /var/lib/apt/lists/*
 
 # prepare executable
 ARG MY_PACKAGE 

@@ -8,4 +8,4 @@ services:
         - MY_PACKAGE=git.rucciva.one/rucciva/vpnwsc
         - MY_ENVIRONMENT=production
         - MY_EXECUTABLE=vpnwsc
-    image: rucciva/vpnwsc
+    image: rucciva/vpnws-client
